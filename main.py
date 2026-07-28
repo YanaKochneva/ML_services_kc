@@ -43,7 +43,50 @@ class BaseEntity(ABC):
         """Автоматическая валидация после инициализации."""
         self.validate()
 
+@dataclass
+class Balance(BaseEntity):
+    """
+    Баланс пользователя в кредитах.
+    1 кредит = фиксированная стоимость в рублях.
+    """
+    user_id: int
+    credits: int = 0
+    
+    CREDIT_PRICE_RUB: float = 30.0
 
+    def validate(self) -> None:
+        if self.user_id <= 0:
+            raise ValueError("Invalid user ID")
+        if self.credits < 0:
+            raise ValueError("Credits cannot be negative")
+
+    def deposit(self, credits: int) -> None:
+        if credits <= 0:
+            raise ValueError("Deposit amount must be positive")
+        self.credits += credits
+
+    def withdraw(self, credits: int) -> None:
+        if credits <= 0:
+            raise ValueError("Withdraw amount must be positive")
+        if self.credits < credits:
+            raise ValueError("Insufficient credits")
+        self.credits -= credits
+
+    def has_enough(self, credits: int) -> bool:
+        return self.credits >= credits
+
+    def to_rubles(self) -> float:
+        """Перевод кредитов в рубли."""
+        return self.credits * self.CREDIT_PRICE_RUB
+
+    @classmethod
+    def rub_to_credits(cls, rub_amount: float) -> int:
+        """Перевод рублей в кредиты."""
+        if rub_amount <= 0:
+            raise ValueError("Amount must be positive")
+        return int(rub_amount / cls.CREDIT_PRICE_RUB)
+    
+    
 @dataclass
 class User(BaseEntity):
     """
@@ -52,18 +95,21 @@ class User(BaseEntity):
     username: str
     email: str
     password_hash: str
-    balance: float = 0.0
+    balance: Balance = field(init=False)
     role: UserRole = UserRole.USER
     created_at: datetime = field(default_factory=datetime.now)
     is_active: bool = True
     transactions: List['Transaction'] = field(default_factory=list)
     ml_tasks: List['MLTask'] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        self.balance = Balance(id=self.id, user_id=self.id, credits=0)
     
     def validate(self) -> None:
         """Валидация данных пользователя."""
         self._validate_username()
         self._validate_email()
-        self._validate_balance()
     
     def _validate_username(self) -> None:
         """Проверка имени пользователя."""
@@ -78,28 +124,22 @@ class User(BaseEntity):
         if not email_pattern.match(self.email):
             raise ValueError("Invalid email format")
     
-    def _validate_balance(self) -> None:
-        """Проверка баланса."""
-        if self.balance < 0:
-            raise ValueError("Balance cannot be negative")
-    
     def add_transaction(self, transaction: 'Transaction') -> None:
         """Добавление транзакции."""
         self.transactions.append(transaction)
         if transaction.transaction_type == TransactionType.DEPOSIT:
-            self.balance += transaction.amount
+            credits = Balance.rub_to_credits(transaction.amount)
+            self.balance.deposit(credits)
         elif transaction.transaction_type == TransactionType.WITHDRAW:
-            if self.balance < transaction.amount:
-                raise ValueError("Insufficient balance")
-            self.balance -= transaction.amount
+            credits = Balance.rub_to_credits(transaction.amount)
+            self.balance.withdraw(credits)
     
     def add_ml_task(self, task: 'MLTask') -> None:
         """Добавление ML задачи."""
         self.ml_tasks.append(task)
     
-    def can_perform_task(self, cost: float) -> bool:
-        """Проверка, достаточно ли средств для выполнения задачи."""
-        return self.balance >= cost
+    def can_perform_task(self, cost: int) -> bool:
+        return self.balance.has_enough(cost)
 
 
 @dataclass
@@ -149,7 +189,7 @@ class LLMConfig(BaseEntity):
     """
     name: str = "Qwen3-8B"
     version: str = "1.0"
-    cost_per_request: float = 10.0
+    cost_per_request: int = 1
     description: str = "Language model for text generation"
     max_prompt_length: int = 4000
     is_active: bool = True
@@ -158,8 +198,8 @@ class LLMConfig(BaseEntity):
         """Валидация конфигурации."""
         if not self.name:
             raise ValueError("Model name is required")
-        if self.cost_per_request < 0:
-            raise ValueError("Cost cannot be negative")
+        if self.cost_per_request < 1 or self.cost_per_request > 3:
+            raise ValueError("Cost per request must be between 1 and 3 credits")
         if not self.version:
             raise ValueError("Version is required")
         if self.max_prompt_length <= 0:
@@ -187,7 +227,7 @@ class MLTask(BaseEntity):
     input_data: Dict[str, Any]
     output_data: Optional[Dict[str, Any]] = None
     status: TaskStatus = TaskStatus.PENDING
-    cost: float = 0.0
+    cost: int = 0
     created_at: datetime = field(default_factory=datetime.now)
     completed_at: Optional[datetime] = None
     error_message: Optional[str] = None
@@ -317,8 +357,8 @@ class AdminService:
         if transaction.transaction_type != TransactionType.DEPOSIT:
             raise ValueError("Only deposit transactions can be approved")
         transaction.approve()
-        user.balance += transaction.amount
-    
+        user.balance.deposit(Balance.rub_to_credits(transaction.amount))
+
     def reject_transaction(self, transaction: Transaction) -> None:
         """Отклонение транзакции."""
         transaction.reject()
@@ -340,7 +380,7 @@ def main() -> None:
         transaction = Transaction(
             id=1,
             user_id=user.id,
-            amount=10.0,
+            amount=30.0,
             transaction_type=TransactionType.DEPOSIT,
             description="Initial deposit"
         )
@@ -349,21 +389,20 @@ def main() -> None:
         config = LLMConfig(
             name="Qwen3-8B",
             version="1.0.0",
-            cost_per_request=10.0,
+            cost_per_request=1,
             description="Language model for text generation"
         )
         
         task = MLTask(
             id=1,
             user_id=user.id,
-            config=config,
             input_data={'prompt': 'Write a short poem'},
             cost=config.cost_per_request
         )
         user.add_ml_task(task)
         
         print(f"Created user: {user.username}")
-        print(f"User balance: {user.balance} credits")
+        print(f"User balance: {user.balance.credits} credits")
         print(f"Number of transactions: {len(user.transactions)}")
         print(f"Number of ML tasks: {len(user.ml_tasks)}")
         print(f"ML task status: {task.status.value}")
