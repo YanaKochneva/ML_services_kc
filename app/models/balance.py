@@ -1,16 +1,29 @@
 from dataclasses import dataclass
 from .base import BaseEntity
+from sqlmodel import SQLModel, Field, Relationship
+from typing import Optional, TYPE_CHECKING
+from decimal import Decimal
+
+if TYPE_CHECKING:
+    from .user import User
 
 @dataclass
-class Balance(BaseEntity):
+class Balance(SQLModel, table=True):
     """
     Баланс пользователя в кредитах.
     1 кредит = фиксированная стоимость в рублях.
-    """
-    user_id: int
-    credits: int = 0
     
-    CREDIT_PRICE_RUB: float = 30.0
+    Attributes:
+        id (int): Primary key
+        user_id (int): Foreign key to User
+        credits (Decimal): Текущий баланс в кредитах
+        user (User): Связанный пользователь
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", unique=True)
+    credits: Decimal = Field(default=0, max_digits=15, decimal_places=2)
+    
+    user: "User" = Relationship(back_populates="balance")
 
     def validate(self) -> None:
         if self.user_id <= 0:

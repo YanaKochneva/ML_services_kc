@@ -1,5 +1,6 @@
+from sqlmodel import SQLModel, Field, Relationship
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, TYPE_CHECKING, Optional
 from datetime import datetime
 from .balance import Balance
 from .base import BaseEntity
@@ -8,22 +9,70 @@ from .transaction import Transaction
 from .ml_task import MLTask
 import re
 
+if TYPE_CHECKING:
+    from .transaction import Transaction
+    from .ml_task import MLTask
+    from .balance import Balance
 
 @dataclass
-class User(BaseEntity):
-    """
+class User(SQLModel, table=True):
+    """"
     Класс пользователя системы.
+    
+    Attributes:
+        id (int): Primary key
+        username (str): Имя пользователя
+        email (str): Email пользователя
+        password_hash (str): Хэш пароля
+        role (str): Роль пользователя
+        created_at (datetime): Дата создания
+        is_active (bool): Активен ли пользователь
+        balance (Balance): Баланс пользователя (one-to-one)
+        transactions (List[Transaction]): Список транзакций
+        ml_tasks (List[MLTask]): Список ML задач
     """
-    username: str
-    email: str
-    password_hash: str
-    balance: Balance = field(init=False)
-    role: UserRole = UserRole.USER
-    created_at: datetime = field(default_factory=datetime.now)
-    is_active: bool = True
-    transactions: List['Transaction'] = field(default_factory=list)
-    ml_tasks: List['MLTask'] = field(default_factory=list)
-
+    id: Optional[int] = Field(default=None, primary_key=True)
+    username: str = Field(
+        ...,  
+        unique=True,
+        index=True,
+        min_length=3,
+        max_length=50
+    )
+    email: str = Field(
+        ...,  
+        unique=True,
+        index=True,
+        max_length=255
+    )
+    password_hash: str = Field(..., min_length=4, max_length=255)
+    role: str = Field(default="USER", max_length=20)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    is_active: bool = Field(default=True)
+    balance: "Balance" = Relationship(
+        back_populates="user",
+        sa_relationship_kwargs={
+            "cascade": "all, delete-orphan",
+            "lazy": "selectin"
+        }
+    )
+    
+    transactions: List["Transaction"] = Relationship(
+        back_populates="user",
+        sa_relationship_kwargs={
+            "cascade": "all, delete-orphan",
+            "lazy": "selectin"
+        }
+    )
+    
+    ml_tasks: List["MLTask"] = Relationship(
+        back_populates="user",
+        sa_relationship_kwargs={
+            "cascade": "all, delete-orphan",
+            "lazy": "selectin"
+        }
+    )
+    
     def __post_init__(self) -> None:
         super().__post_init__()
         self.balance = Balance(id=self.id, user_id=self.id, credits=0)

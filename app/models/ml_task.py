@@ -3,33 +3,46 @@ from .base import BaseEntity
 from typing import List, Optional, Dict, Any
 from .enums import TaskStatus
 from datetime import datetime
+from typing import List, TYPE_CHECKING, Optional
+from sqlmodel import SQLModel, Field, Column, JSON, Relationship
+from decimal import Decimal
+
+if TYPE_CHECKING:
+    from .user import User
 
 @dataclass
-class MLTask(BaseEntity):
+class MLTask(SQLModel, table=True):
     """
     Класс задачи для LLM сервиса.
     
     Attributes:
-        id: Уникальный идентификатор
-        user_id: ID пользователя
-        input_data: Запрос к LLM
-        output_data: Результат генерации
-        status: Статус задачи
-        cost: Стоимость выполнения
-        created_at: Дата создания
-        completed_at: Дата завершения
-        error_message: Сообщение об ошибке
-        validation_errors: Ошибки валидации данных
+        id (int): Primary key
+        user_id (int): Foreign key to User
+        input_data (Dict[str, Any]): Запрос к LLM
+        output_data (Optional[Dict[str, Any]]): Результат генерации
+        status (str): Статус задачи
+        cost (Decimal): Стоимость выполнения
+        created_at (datetime): Дата создания
+        completed_at (Optional[datetime]): Дата завершения
+        error_message (Optional[str]): Сообщение об ошибке
+        validation_errors (List[str]): Ошибки валидации данных
+        user (User): Связанный пользователь
     """
-    user_id: int
-    input_data: Dict[str, Any]
-    output_data: Optional[Dict[str, Any]] = None
-    status: TaskStatus = TaskStatus.PENDING
-    cost: int = 0
-    created_at: datetime = field(default_factory=datetime.now)
-    completed_at: Optional[datetime] = None
-    error_message: Optional[str] = None
-    validation_errors: List[str] = field(default_factory=list)
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id")
+    input_data: Dict[str, Any] = Field(sa_column=Column(JSON))
+    output_data: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    status: str = Field(default="PENDING", max_length=20)
+    cost: Decimal = Field(default=0, max_digits=10, decimal_places=2)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    completed_at: Optional[datetime] = Field(default=None)
+    error_message: Optional[str] = Field(default=None, max_length=500)
+    validation_errors: List[str] = Field(
+        default_factory=list,
+        sa_column=Column(JSON)
+    )
+
+    user: "User" = Relationship(back_populates="ml_tasks")
     
     def validate(self) -> None:
         """Валидация ML задачи."""
