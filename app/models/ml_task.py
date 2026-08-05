@@ -31,6 +31,7 @@ class MLTask(SQLModel, table=True):
     """
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="user.id")
+    llm_config_id: Optional[int] = Field(foreign_key="llm_configs.id")
     input_data: Dict[str, Any] = Field(sa_column=Column(JSON))
     output_data: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
     status: str = Field(default="PENDING", max_length=20)
@@ -44,7 +45,7 @@ class MLTask(SQLModel, table=True):
     )
 
     user: "User" = Relationship(back_populates="ml_tasks")
-    llm_config: Optional["LLMConfig"] = Relationship(back_populates="ml_tasks")
+    llm_config: "LLMConfig" = Relationship(back_populates="ml_tasks", sa_relationship_kwargs={"lazy": "selectin"})
 
     
     def validate(self) -> None:
