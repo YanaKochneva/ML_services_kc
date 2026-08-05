@@ -9,6 +9,7 @@ from decimal import Decimal
 
 if TYPE_CHECKING:
     from .user import User
+    from .llm_config import LLMConfig
 
 @dataclass
 class MLTask(SQLModel, table=True):
@@ -43,6 +44,8 @@ class MLTask(SQLModel, table=True):
     )
 
     user: "User" = Relationship(back_populates="ml_tasks")
+    llm_config: Optional["LLMConfig"] = Relationship(back_populates="ml_tasks")
+
     
     def validate(self) -> None:
         """Валидация ML задачи."""
