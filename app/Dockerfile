@@ -10,4 +10,4 @@ EXPOSE 8080
 
 # COPY ./ /app
 
-CMD ["python", "main.py"]
+CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8080"]

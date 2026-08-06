@@ -5,10 +5,17 @@ services:
     image: event-planner-api:1.0.0
     container_name: event-planner-api
     restart: unless-stopped
+    ports:                     
+      - "8080:8080"
     env_file:
     - ./app/.env
+    environment:
+      - DB_HOST=host.docker.internal
     volumes:
       - ./app:/app
+    depends_on:
+      database:
+        condition: service_healthy
     networks:
       - event-planner-network
     healthcheck:
@@ -49,10 +56,10 @@ services:
       retries: 3
       start_period: 30s
     env_file:
-      - ./app/.env  # Тот же файл для RabbitMQ
+      - ./app/.env 
     environment:
       - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER:-guest}
-      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD:?err}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD:-guest}
       - RABBITMQ_DEFAULT_VHOST=${RABBITMQ_VHOST:-/}
 
   database:
@@ -65,7 +72,7 @@ services:
       - ./app/.env  
     environment:
       - POSTGRES_USER=${DB_USER:-postgres}
-      - POSTGRES_PASSWORD=${DB_PASS:?err}
+      - POSTGRES_PASSWORD=balbes
       - POSTGRES_DB=${DB_NAME:-event_planner}
       - PGDATA=/var/lib/postgresql/data/pgdata
     volumes:
