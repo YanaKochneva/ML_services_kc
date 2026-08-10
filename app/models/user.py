@@ -73,9 +73,9 @@ class User(SQLModel, table=True):
         }
     )
     
-    def __post_init__(self) -> None:
-        super().__post_init__()
-        self.balance = Balance(id=self.id, user_id=self.id, credits=0)
+    # def __post_init__(self) -> None:
+    #     super().__post_init__()
+    #     self.balance = Balance(id=self.id, user_id=self.id, credits=0)
     
     def validate(self) -> None:
         """Валидация данных пользователя."""

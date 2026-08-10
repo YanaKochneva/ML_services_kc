@@ -1,7 +1,6 @@
 from dataclasses import dataclass
-from .base import BaseEntity
 from sqlmodel import SQLModel, Field, Relationship
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, ClassVar
 from decimal import Decimal
 
 if TYPE_CHECKING:
@@ -24,7 +23,8 @@ class Balance(SQLModel, table=True):
     credits: Decimal = Field(default=0, max_digits=15, decimal_places=2)
     
     user: "User" = Relationship(back_populates="balance")
-
+    CREDIT_PRICE_RUB: ClassVar[Decimal] = Decimal('30.0')
+    
     def validate(self) -> None:
         if self.user_id <= 0:
             raise ValueError("Invalid user ID")
@@ -56,4 +56,10 @@ class Balance(SQLModel, table=True):
         if rub_amount <= 0:
             raise ValueError("Amount must be positive")
         return int(rub_amount / cls.CREDIT_PRICE_RUB)
+
+    @classmethod
+    def credits_to_rub(cls, credits: Decimal) -> Decimal:
+        if credits < 0:
+            raise ValueError("Credits cannot be negative")
+        return credits * cls.CREDIT_PRICE_RUB
     

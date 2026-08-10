@@ -5,6 +5,7 @@ from models.user import User
 from services.crud import user as UserService
 from typing import List, Dict
 import logging
+from services.auth.auth import get_current_user, get_current_active_admin
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -107,65 +108,46 @@ async def signin(data: User, session=Depends(get_session)) -> Dict[str, str]:
     logger.info(f"User signed in: {user.username} ({user.email})")
     return {
         "message": "User signed in successfully",
-        "user_id": user.id,
+        "user_id": str(user.id),
         "username": user.username,
         "email": user.email,
         "role": user.role
     }
 
+@user_route.get(
+    "/me",
+    response_model=User,
+    summary="Get user profile"
+)
+async def get_user_profile(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    return current_user
 
 @user_route.get(
     "/get_all_users",
     response_model=List[User],
-    summary="Get all users",
-    description="Retrieve list of all registered users"
+    summary="Get all users (admin only)"
 )
-async def get_all_users(session=Depends(get_session)) -> List[User]:
-    """
-    Get list of all users.
-
-    Args:
-        session: Database session
-
-    Returns:
-        List[User]: List of users
-    """
-    try:
-        users = UserService.get_all_users(session)
-        logger.info(f"Retrieved {len(users)} users")
-        return users
-    except Exception as e:
-        logger.error(f"Error retrieving users: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error retrieving users"
-        )
+async def get_all_users(
+    admin: User = Depends(get_current_active_admin),
+    session=Depends(get_session)
+) -> List[User]:
+    return UserService.get_all_users(session)
 
 @user_route.get(
     "/{user_id}",
     response_model=User,
-    summary="Get user by ID",
-    description="Retrieve a specific user by their ID"
+    summary="Get user by ID"
 )
-async def get_user_by_id(user_id: int, session=Depends(get_session)) -> User:
-    """
-    Get user by ID.
-
-    Args:
-        user_id: User ID
-        session: Database session
-
-    Returns:
-        User: User object
-
-    Raises:
-        HTTPException: If user not found
-    """
+async def get_user_by_id(
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    session=Depends(get_session)
+) -> User:
+    if current_user.role != "admin" and current_user.id != user_id:
+        raise HTTPException(403, "Not allowed")
     user = UserService.get_user_by_id(user_id, session)
-    if user is None:
-        logger.warning(f"User not found: ID {user_id}")
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
+    if not user:
+        raise HTTPException(404, "User not found")
     return user

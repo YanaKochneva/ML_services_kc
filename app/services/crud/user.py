@@ -129,6 +129,9 @@ def create_user(user: User, session: Session) -> User:
     try:
         # Validate user data
         user.validate()
+
+        session.add(user)
+        session.flush()
         
         # Create balance for user
         balance = Balance(
@@ -137,7 +140,6 @@ def create_user(user: User, session: Session) -> User:
         )
         user.balance = balance
         
-        session.add(user)
         session.add(balance)
         session.commit()
         session.refresh(user)

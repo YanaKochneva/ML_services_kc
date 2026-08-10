@@ -1,5 +1,4 @@
 from sqlmodel import SQLModel, Session, create_engine 
-from contextlib import contextmanager
 from .config import get_settings
 
 def get_database_engine():
@@ -23,7 +22,6 @@ def get_database_engine():
 
 engine = get_database_engine()
 
-@contextmanager
 def get_session():
     with Session(engine) as session:
         yield session

@@ -5,6 +5,7 @@ from routes.balance import balance_route
 from routes.user import user_route
 from routes.ml_task import ml_task_route
 from routes.transaction import transaction_route
+from routes.auth import auth_route
 from database.database import init_db
 from database.config import get_settings
 import uvicorn
@@ -43,6 +44,7 @@ def create_application() -> FastAPI:
     app.include_router(transaction_route, prefix='/api/transactions', tags=['Transactions'])
     app.include_router(ml_task_route, prefix='/api/ml-tasks', tags=['ML Tasks'])
     app.include_router(balance_route, prefix='/api/balance', tags=['Balance'])
+    app.include_router(auth_route, prefix='/api/auth', tags=['Auth']) 
 
     @app.get('/health')
     def health():
