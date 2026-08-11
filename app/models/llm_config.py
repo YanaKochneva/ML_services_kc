@@ -23,7 +23,7 @@ class LLMConfig(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(
-        default="Qwen3-8B",
+        default="Qwen2.5-1.5B-Instruct",
         max_length=100
     )
     version: str = Field(

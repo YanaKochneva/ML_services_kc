@@ -10,14 +10,14 @@ from services.crud import llm_config as LLMConfigService
 from models.default_llm import DefaultLLMService
 from typing import List, Dict, Any
 from decimal import Decimal
-from sqlmodel import Session
+from sqlmodel import Session, select
 from models.enums import TaskStatus, TransactionType
 from models.transaction import Transaction
 import logging
 from datetime import datetime
 from services.auth.auth import get_current_user, get_current_active_admin
 from typing import Optional
-
+from services.rm import send_task
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -172,3 +172,47 @@ async def delete_ml_task(
         raise HTTPException(403, "Not allowed to delete this task")
     MLTaskService.delete_ml_task(task_id, session)
     return {"message": "ML task successfully deleted"}
+
+@ml_task_route.post('/predict', response_model=Dict[str, str])
+async def predict(
+    request: Dict[str, Any],
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    features = request.get('features')
+    model_name = request.get('model', 'Qwen2.5-1.5B-Instruct') 
+
+    if not features or 'prompt' not in features:
+        raise HTTPException(400, "Missing 'prompt' in features")
+
+    llm_config = session.exec(
+        select(LLMConfig).where(LLMConfig.name == model_name, LLMConfig.is_active == True)
+    ).first()
+    if not llm_config:
+        raise HTTPException(404, f"LLM config '{model_name}' not found or inactive")
+
+    cost = llm_config.cost_per_request
+    if not current_user.balance.has_enough(cost):
+        raise HTTPException(400, "Insufficient balance")
+
+    task = MLTask(
+        user_id=current_user.id,
+        llm_config_id=llm_config.id,
+        input_data=features,
+        status=TaskStatus.PENDING.value,
+        cost=cost,
+        created_at=datetime.utcnow()
+    )
+    session.add(task)
+    session.commit()
+    session.refresh(task)
+
+    message = {
+        "task_id": str(task.id),
+        "features": features,
+        "llm_config_id": llm_config.id,
+        "timestamp": datetime.utcnow().isoformat()
+    }
+    send_task(message)
+
+    return {"task_id": str(task.id)}
