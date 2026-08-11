@@ -1,5 +1,6 @@
 from sqlmodel import SQLModel, Session, create_engine 
 from .config import get_settings
+from sqlalchemy import inspect
 
 def get_database_engine():
     """
@@ -25,6 +26,14 @@ engine = get_database_engine()
 def get_session():
     with Session(engine) as session:
         yield session
+
+def drop_all_tables_safe(engine):
+    """Безопасно удаляет все таблицы, игнорируя несуществующие."""
+    inspector = inspect(engine)
+    table_names = inspector.get_table_names()
+    if not table_names:
+        return
+    SQLModel.metadata.drop_all(engine, checkfirst=True)  
         
 def init_db(drop_all: bool = False) -> None:
     """
@@ -39,7 +48,8 @@ def init_db(drop_all: bool = False) -> None:
     try:
         engine = get_database_engine()
         if drop_all:
-            SQLModel.metadata.drop_all(engine)
+            drop_all_tables_safe(engine)
+
         
         SQLModel.metadata.create_all(engine)
     except Exception as e:

@@ -6,12 +6,12 @@ import sys
 from datetime import datetime
 from decimal import Decimal
 from sqlmodel import Session
-from database.database import engine
-from models.ml_task import MLTask
-from models.enums import TaskStatus, TransactionType
-from models.transaction import Transaction
-from models.llm_config import LLMConfig
-from services.qwen_service import QwenService
+from app.database.database import engine
+from app.models.ml_task import MLTask
+from app.models.enums import TaskStatus, TransactionType
+from app.models.transaction import Transaction
+from app.models.llm_config import LLMConfig
+from app.services.qwen_service import QwenService
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

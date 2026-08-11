@@ -24,15 +24,14 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
-  ml_worker:
+  worker:
     build: ./ml_worker/
     image: event-planner-ml-worker:latest
-    container_name: event-planner-ml-worker
     restart: unless-stopped
     env_file:
     - ./ml_worker/.env
     volumes:
-      - ./ml_worker:/app
+      - ./app:/app
     depends_on:
       database:
         condition: service_started

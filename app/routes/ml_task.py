@@ -17,7 +17,7 @@ import logging
 from datetime import datetime
 from services.auth.auth import get_current_user, get_current_active_admin
 from typing import Optional
-from services.rm import send_task
+from services.rm.rm import send_task
 
 # Configure logging
 logger = logging.getLogger(__name__)
