@@ -1,13 +1,17 @@
-# main.py
-from fastapi import FastAPI
+# api.py
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from routes.balance import balance_route
 from routes.user import user_route
 from routes.ml_task import ml_task_route
 from routes.transaction import transaction_route
 from routes.auth import auth_route
-from database.database import init_db
+from database.database import init_db, get_session
 from database.config import get_settings
+from services.crud.llm_config import get_all_llm_configs
 import uvicorn
 import logging
 
@@ -15,13 +19,6 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 def create_application() -> FastAPI:
-    """
-    Create and configure FastAPI application.
-    
-    Returns:
-        FastAPI: Configured application instance
-    """
-    
     app = FastAPI(
         title=settings.APP_NAME,
         description=settings.APP_DESCRIPTION if hasattr(settings, 'APP_DESCRIPTION') else "ML Services API",
@@ -30,7 +27,9 @@ def create_application() -> FastAPI:
         redoc_url="/api/redoc"
     )
 
-    # Configure CORS
+    app.mount("/view", StaticFiles(directory="view"), name="view")
+    # templates = Jinja2Templates(directory="view")
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -39,16 +38,25 @@ def create_application() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Register routes
     app.include_router(user_route, prefix='/api/users', tags=['Users'])
     app.include_router(transaction_route, prefix='/api/transactions', tags=['Transactions'])
     app.include_router(ml_task_route, prefix='/api/ml-tasks', tags=['ML Tasks'])
     app.include_router(balance_route, prefix='/api/balance', tags=['Balance'])
-    app.include_router(auth_route, prefix='/api/auth', tags=['Auth']) 
+    app.include_router(auth_route, prefix='/api/auth', tags=['Auth'])
 
     @app.get('/health')
     def health():
         return {'status': 'healthy'}
+
+    @app.get("/")
+    async def index():
+        return FileResponse("view/index.html")
+
+    @app.get("/api/llm-configs", tags=["LLM"])
+    def get_llm_configs():
+        with get_session() as session:
+            configs = get_all_llm_configs(session, active_only=True)
+            return [{"id": c.id, "name": c.name, "cost": c.cost_per_request} for c in configs]
 
     return app
 
@@ -66,13 +74,12 @@ def on_startup():
     
 @app.on_event("shutdown")
 async def shutdown_event():
-    """Cleanup on application shutdown."""
     logger.info("Application shutting down...")
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     uvicorn.run(
-        'main:app',
+        'api:app',
         host='0.0.0.0',
         port=8080,
         reload=True,

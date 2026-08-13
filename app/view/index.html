@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>🧠 AI Психолог</title>
+    <link rel="stylesheet" href="/view/css/style.css" />
+</head>
+<body>
+
+    <div id="homePage" class="home-page">
+        <div class="hero">
+            <div class="logo">🧠 AI Психолог</div>
+            <h1>Психологическая поддержка на основе ИИ</h1>
+            <p class="subtitle">
+                Наш сервис использует современные языковые модели, чтобы помочь вам 
+                разобраться в сложных эмоциональных ситуациях, дать совет или просто 
+                выслушать. Доступно 24/7, конфиденциально и безопасно.
+            </p>
+            <div class="features">
+                <div class="feature">
+                    <span>🤖</span>
+                    <h3>Естественный диалог</h3>
+                    <p>Модель обучена на больших данных и понимает контекст.</p>
+                </div>
+                <div class="feature">
+                    <span>🔒</span>
+                    <h3>Конфиденциальность</h3>
+                    <p>Ваши данные не передаются третьим лицам.</p>
+                </div>
+                <div class="feature">
+                    <span>⚡</span>
+                    <h3>Мгновенный ответ</h3>
+                    <p>Получайте предсказания в течение нескольких секунд.</p>
+                </div>
+            </div>
+            <div class="cta-buttons">
+                <button class="btn-primary" id="goToLoginBtn">Войти</button>
+                <button class="btn-secondary" id="goToSignupBtn">Зарегистрироваться</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="authPage" class="auth-page" style="display: none;">
+        <div class="logo">🧠 AI Психолог</div>
+        <div class="subtitle">Поддержка, вдохновение, забота</div>
+
+        <!-- Форма входа -->
+        <div id="loginForm" class="auth-box">
+            <h2>Вход</h2>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="loginEmail" placeholder="ваш@email.ru" />
+            </div>
+            <div class="form-group">
+                <label>Пароль</label>
+                <input type="password" id="loginPassword" placeholder="••••••••" />
+            </div>
+            <button class="btn-primary" id="loginBtn">Войти</button>
+            <div class="auth-switch">
+                Нет аккаунта? <a id="showSignup">Зарегистрироваться</a>
+            </div>
+            <div id="authError" class="error-msg"></div>
+        </div>
+
+        <div id="signupForm" class="auth-box" style="display:none;">
+            <h2>Регистрация</h2>
+            <div class="form-group">
+                <label>Имя пользователя</label>
+                <input type="text" id="signupUsername" placeholder="john_doe" />
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="signupEmail" placeholder="ваш@email.ru" />
+            </div>
+            <div class="form-group">
+                <label>Пароль</label>
+                <input type="password" id="signupPassword" placeholder="••••••••" />
+            </div>
+            <button class="btn-primary" id="signupBtn">Создать аккаунт</button>
+            <div class="auth-switch">
+                Уже есть аккаунт? <a id="showLogin">Войти</a>
+            </div>
+            <div id="signupError" class="error-msg"></div>
+        </div>
+    </div>
+
+    <div id="dashboard" class="dashboard" style="display: none;">
+        <div class="topbar">
+            <div class="logo-small">🧠 AI Психолог</div>
+            <div class="balance-info">
+                <span>💰 <span class="credits" id="balanceCredits">0</span> кредитов</span>
+                <span>≈ <span class="rubles" id="balanceRubles">0</span> ₽</span>
+                <button class="btn-logout" id="logoutBtn">Выйти</button>
+            </div>
+        </div>
+
+        <div class="nav-tabs">
+            <button class="active" data-tab="chat">💬 Чат</button>
+            <button data-tab="balance">💰 Баланс</button>
+            <button data-tab="transactions">📊 Транзакции</button>
+            <button data-tab="tasks">📋 Задачи</button>
+            <button data-tab="admin" id="adminTab" style="display:none;">🛠️ Админ</button>
+        </div>
+
+        <div class="content">
+            <div id="tab-chat" class="tab-pane active">
+                <div class="chat-container">
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="message assistant">
+                            Здравствуйте! Я — ваш AI-психолог. Чем могу помочь?<br />
+                            <span class="meta">🤖</span>
+                        </div>
+                    </div>
+                    <div class="chat-input-area">
+                        <select id="modelSelect" style="padding: 10px; border-radius: 30px; border: 1.5px solid #e6edf5; background: white;">
+                        </select>
+                        <input type="text" id="chatInput" placeholder="Опишите, что вас беспокоит..." autocomplete="off" />
+                        <button id="sendBtn">Отправить</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-balance" class="tab-pane">
+                <h3 style="margin-bottom: 16px; font-weight: 400;">Управление балансом</h3>
+                <div class="card-grid">
+                    <div class="stat-card">
+                        <div class="label">Кредиты</div>
+                        <div class="value" id="balanceCreditsDetail">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">Рубли</div>
+                        <div class="value" id="balanceRublesDetail">0 ₽</div>
+                    </div>
+                </div>
+                <div style="margin-top: 24px;">
+                    <div class="action-row">
+                        <input type="number" id="depositAmount" placeholder="Количество кредитов" min="1" />
+                        <button class="btn-secondary" id="depositBtn">Пополнить</button>
+                    </div>
+                    <div class="action-row" style="margin-top: 10px;">
+                        <input type="number" id="withdrawAmount" placeholder="Количество кредитов" min="1" />
+                        <button class="btn-secondary btn-danger" id="withdrawBtn">Списать</button>
+                    </div>
+                    <div id="balanceMsg" style="margin-top: 12px; color: #4da6ff; font-size: 14px;"></div>
+                </div>
+            </div>
+
+            <div id="tab-transactions" class="tab-pane">
+                <h3 style="margin-bottom: 16px; font-weight: 400;">История транзакций</h3>
+                <div id="transactionsList"></div>
+            </div>
+
+            <div id="tab-tasks" class="tab-pane">
+                <h3 style="margin-bottom: 16px; font-weight: 400;">История задач</h3>
+                <div id="tasksList"></div>
+            </div>
+
+            <div id="tab-admin" class="tab-pane">
+                <h3 style="margin-bottom: 16px; font-weight: 400;">Администрирование</h3>
+                <div id="adminPanel">
+                    <div id="usersList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/view/js/app.js"></script>
+</body>
+</html>
