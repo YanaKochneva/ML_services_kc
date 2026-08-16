@@ -31,7 +31,10 @@ services:
     env_file:
     - ./ml_worker/.env
     volumes:
-      - ./app:/app
+      - ./app/models:/app/app/models
+      - ./app/database:/app/app/database
+      - ./app/services:/app/app/services
+      - ./ml_worker:/app/ml_worker
     depends_on:
       database:
         condition: service_started
