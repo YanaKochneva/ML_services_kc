@@ -34,7 +34,7 @@ class MLTask(SQLModel, table=True):
     llm_config_id: Optional[int] = Field(foreign_key="llm_configs.id")
     input_data: Dict[str, Any] = Field(sa_column=Column(JSON))
     output_data: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
-    status: str = Field(default="PENDING", max_length=20)
+    status: str = Field(default=TaskStatus.PENDING.value, max_length=20)
     cost: Decimal = Field(default=0, max_digits=10, decimal_places=2)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     completed_at: Optional[datetime] = Field(default=None)
@@ -59,17 +59,17 @@ class MLTask(SQLModel, table=True):
     
     def complete(self, result: Dict[str, Any]) -> None:
         """Завершение задачи с результатом."""
-        self.status = TaskStatus.COMPLETED
+        self.status = TaskStatus.COMPLETED.value
         self.output_data = result
         self.completed_at = datetime.now()
     
     def fail(self, error: str) -> None:
         """Отметка о провале задачи."""
-        self.status = TaskStatus.FAILED
+        self.status = TaskStatus.FAILED.value
         self.error_message = error
         self.completed_at = datetime.now()
     
     def add_validation_error(self, error: str) -> None:
         """Добавление ошибки валидации."""
         self.validation_errors.append(error)
-        self.status = TaskStatus.VALIDATION_ERROR
+        self.status = TaskStatus.VALIDATION_ERROR.value

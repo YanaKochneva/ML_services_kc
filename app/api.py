@@ -4,6 +4,7 @@ from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from pathlib import Path
 from routes.balance import balance_route
 from routes.user import user_route
 from routes.ml_task import ml_task_route
@@ -27,7 +28,8 @@ def create_application() -> FastAPI:
         redoc_url="/api/redoc"
     )
 
-    app.mount("/view", StaticFiles(directory="view"), name="view")
+    BASE_DIR = Path(__file__).resolve().parent
+    app.mount("/view", StaticFiles(directory=BASE_DIR / "view"), name="view")
     # templates = Jinja2Templates(directory="view")
 
     app.add_middleware(
@@ -42,7 +44,7 @@ def create_application() -> FastAPI:
     app.include_router(transaction_route, prefix='/api/transactions', tags=['Transactions'])
     app.include_router(ml_task_route, prefix='/api/ml-tasks', tags=['ML Tasks'])
     app.include_router(balance_route, prefix='/api/balance', tags=['Balance'])
-    app.include_router(auth_route, prefix='/api/auth', tags=['Auth'])
+    app.include_router(auth_route, tags=['Auth'])
 
     @app.get('/health')
     def health():
@@ -50,7 +52,7 @@ def create_application() -> FastAPI:
 
     @app.get("/")
     async def index():
-        return FileResponse("view/index.html")
+        return FileResponse(BASE_DIR / "view" / "index.html")
 
     @app.get("/api/llm-configs", tags=["LLM"])
     def get_llm_configs():

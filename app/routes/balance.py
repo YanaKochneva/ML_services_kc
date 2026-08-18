@@ -3,9 +3,12 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from database.database import get_session
 from models.balance import Balance
 from models.user import User
+from models.transaction import Transaction
+from models.enums import TransactionType
 from services.crud import user as UserService
-from typing import Dict
+from typing import Dict, Any
 import logging
+from decimal import Decimal
 from services.auth.auth import get_current_user, get_current_active_admin
 
 # Configure logging
@@ -29,20 +32,30 @@ async def get_user_balance(
 
 @balance_route.post(
     '/me/deposit',
-    response_model=Dict[str, float],
+    response_model=Dict[str, Any],
     summary="Deposit credits to user balance"
 )
 async def deposit_my_credits(
     deposit_data: Dict[str, int],
     current_user: User = Depends(get_current_user),
     session=Depends(get_session)
-) -> Dict[str, float]:
+) -> Dict[str, Any]:
     try:
         credits = deposit_data.get('credits')
         if credits is None or credits <= 0:
             raise HTTPException(400, "Credits must be positive")
         current_user.balance.deposit(credits)
         session.add(current_user.balance)
+
+        transaction = Transaction(
+            user_id=current_user.id,
+            amount=Balance.credits_to_rub(Decimal(credits)),
+            transaction_type=TransactionType.DEPOSIT,
+            description="Balance deposit",
+            status="approved"
+        )
+        session.add(transaction)
+
         session.commit()
         session.refresh(current_user.balance)
         return {
@@ -50,6 +63,8 @@ async def deposit_my_credits(
             "credits": float(current_user.balance.credits),
             "rubles": current_user.balance.to_rubles()
         }
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(400, str(e))
     except Exception as e:
@@ -58,7 +73,7 @@ async def deposit_my_credits(
 
 @balance_route.post(
     '/me/withdraw',
-    response_model=Dict[str, float],
+    response_model=Dict[str, Any],
     summary="Withdraw credits from user balance"
 )
 async def withdraw_my_credits(
@@ -81,6 +96,8 @@ async def withdraw_my_credits(
             "credits": float(current_user.balance.credits),
             "rubles": current_user.balance.to_rubles()
         }
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(400, str(e))
     except Exception as e:
@@ -133,7 +150,7 @@ async def get_user_balance(
 
 @balance_route.post(
     '/user/{user_id}/deposit',
-    response_model=Dict[str, float],
+    response_model=Dict[str, Any],
     summary="Deposit credits to user (admin only)"
 )
 async def deposit_user_credits(
@@ -166,7 +183,7 @@ async def deposit_user_credits(
 
 @balance_route.post(
     '/user/{user_id}/withdraw',
-    response_model=Dict[str, float],
+    response_model=Dict[str, Any],
     summary="Withdraw credits from user (admin only)"
 )
 async def withdraw_user_credits(

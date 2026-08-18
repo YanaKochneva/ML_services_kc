@@ -55,7 +55,7 @@ class Balance(SQLModel, table=True):
         """Перевод рублей в кредиты."""
         if rub_amount <= 0:
             raise ValueError("Amount must be positive")
-        return int(rub_amount / cls.CREDIT_PRICE_RUB)
+        return int(Decimal(str(rub_amount)) / cls.CREDIT_PRICE_RUB)
 
     @classmethod
     def credits_to_rub(cls, credits: Decimal) -> Decimal:

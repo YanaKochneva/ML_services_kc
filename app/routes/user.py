@@ -5,7 +5,7 @@ from models.user import User
 from services.crud import user as UserService
 from typing import List, Dict
 import logging
-from services.auth.auth import get_current_user, get_current_active_admin
+from services.auth.auth import get_current_user, get_current_active_admin, get_password_hash
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -53,7 +53,7 @@ async def signup(data: User, session=Depends(get_session)) -> Dict[str, str]:
         user = User(
             username=data.username,
             email=data.email,
-            password_hash=data.password_hash,
+            password_hash=get_password_hash(data.password_hash),
             role=data.role if hasattr(data, 'role') else "USER"
         )
         UserService.create_user(user, session)
