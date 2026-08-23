@@ -23,7 +23,7 @@ class Balance(SQLModel, table=True):
     credits: Decimal = Field(default=0, max_digits=15, decimal_places=2)
     
     user: "User" = Relationship(back_populates="balance")
-    CREDIT_PRICE_RUB: ClassVar[Decimal] = Decimal('30.0')
+    CREDIT_PRICE_RUB: ClassVar[Decimal] = Decimal('5.0')
     
     def validate(self) -> None:
         if self.user_id <= 0:

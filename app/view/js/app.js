@@ -53,17 +53,30 @@ const tabPanes = {
 };
 
 function apiFetch(endpoint, options = {}) {
+    // Если нет токена – перенаправляем на логин
+    if (!token) {
+        logout();
+        return Promise.reject(new Error('Not authenticated'));
+    }
+
     const headers = {
         'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        'Authorization': `Bearer ${token}`,
         ...options.headers,
     };
+
     return fetch(`${API_BASE}${endpoint}`, {
         ...options,
         headers,
-    }).then(res => {
+    })
+    .then(res => {
+        if (res.status === 401) {
+            // Токен недействителен – выходим
+            logout();
+            throw new Error('Session expired. Please login again.');
+        }
         if (!res.ok) {
-            return res.json().then(err => { throw new Error(err.detail || 'Ошибка запроса'); });
+            return res.json().then(err => { throw new Error(err.detail || 'Request failed'); });
         }
         return res.json();
     });
@@ -154,10 +167,22 @@ function handleSignup() {
         showSignupError('Заполните все поля');
         return;
     }
-    apiFetch('/api/users/signup', {
+    // Обычный fetch (не apiFetch): регистрация выполняется ДО входа,
+    // когда токена ещё нет, и авторизация для этого запроса не нужна.
+    fetch(`${API_BASE}/api/users/signup`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, email, password_hash: password }),
-    }).then(data => {
+    })
+    .then(res => {
+        if (!res.ok) {
+            return res.json().then(err => {
+                throw new Error(err.detail || 'Ошибка регистрации');
+            });
+        }
+        return res.json();
+    })
+    .then(data => {
         if (data.message) {
             showLoginForm();
             showSignupError('');
@@ -167,7 +192,8 @@ function handleSignup() {
         } else {
             showSignupError('Ошибка регистрации');
         }
-    }).catch(err => {
+    })
+    .catch(err => {
         showSignupError(err.message || 'Ошибка регистрации');
     });
 }
@@ -296,16 +322,18 @@ function appendMessage(role, content, meta = '') {
 function pollTaskStatus(taskId, onComplete) {
     if (pollingIntervals[taskId]) clearInterval(pollingIntervals[taskId]);
     let attempts = 0;
-    const maxAttempts = 30;
+    const maxAttempts = 200; // 200 * 3с = 10 минут (генерация на CPU + первая загрузка модели в память занимают несколько минут)
     const interval = setInterval(() => {
         attempts++;
         apiFetch(`/api/ml-tasks/${taskId}`)
             .then(task => {
-                if (task.status === 'COMPLETED') {
+                // Статусы в БД хранятся в нижнем регистре: 'completed', 'failed', 'validation_error'
+                const status = (task.status || '').toLowerCase();
+                if (status === 'completed') {
                     clearInterval(interval);
                     delete pollingIntervals[taskId];
                     onComplete(null, task);
-                } else if (task.status === 'FAILED' || task.status === 'VALIDATION_ERROR') {
+                } else if (status === 'failed' || status === 'validation_error') {
                     clearInterval(interval);
                     delete pollingIntervals[taskId];
                     onComplete(task.error_message || 'Ошибка выполнения', task);
@@ -339,9 +367,7 @@ function sendMessage() {
         }),
     })
     .then(data => {
-        const taskId = data.task_id;
-        if (!taskId) throw new Error('Не получен ID задачи');
-        pollTaskStatus(taskId, (error, task) => {
+        if (data.error_message) {
             sendBtn.disabled = false;
             sendBtn.textContent = 'Отправить';
             const msgs = chatMessages.querySelectorAll('.message.assistant');
@@ -349,8 +375,23 @@ function sendMessage() {
             if (last && last.textContent.includes('⏳ Ожидание ответа...')) {
                 last.remove();
             }
-            if (error) {
-                appendMessage('assistant', '❌ Ошибка: ' + error, '🤖');
+            appendMessage('assistant', '❌ Ошибка: ' + (data.error_message || 'Ошибка выполнения'), '🤖');
+            loadTasks();
+            return;
+        }
+
+        // Асинхронная задача: периодически опрашиваем статус, пока воркер
+        // не завершит обработку.
+        pollTaskStatus(data.task_id, (err, task) => {
+            sendBtn.disabled = false;
+            sendBtn.textContent = 'Отправить';
+            const msgs = chatMessages.querySelectorAll('.message.assistant');
+            const last = msgs[msgs.length - 1];
+            if (last && last.textContent.includes('⏳ Ожидание ответа...')) {
+                last.remove();
+            }
+            if (err) {
+                appendMessage('assistant', '❌ Ошибка: ' + (err || 'Ошибка выполнения'), '🤖');
             } else {
                 const response = task?.output_data?.response || 'Ответ не получен';
                 appendMessage('assistant', response, '🤖');

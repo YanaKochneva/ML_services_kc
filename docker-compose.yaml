@@ -35,6 +35,9 @@ services:
       - ./app/database:/app/app/database
       - ./app/services:/app/app/services
       - ./ml_worker:/app/ml_worker
+      # Общий HF-кэш с хостом: воркер переиспользует уже скачанные веса/токенизатор
+      # и продолжает докачку (резидентный в Docker будет терять прогресс при рестартах).
+      - C:/Users/andre/.cache/huggingface:/root/.cache/huggingface
     depends_on:
       database:
         condition: service_started

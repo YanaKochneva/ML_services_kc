@@ -27,7 +27,7 @@ def send_task(message: dict):
     queue_name = 'ml_task_queue'
 
     # Отправка сообщения
-    channel.queue_declare(queue=queue_name)  # Создание очереди (если не существует)
+    channel.queue_declare(queue=queue_name, durable=True)  # Создание очереди (если не существует)
 
     channel.basic_publish(
         exchange='',

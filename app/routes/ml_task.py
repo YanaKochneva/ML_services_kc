@@ -31,7 +31,7 @@ ml_task_route = APIRouter()
     summary="Create and execute ML Task",
     description="Create a new ML task, validate input, execute LLM, charge credits."
 )
-async def create_ml_task(
+def create_ml_task(
     data: MLTask,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
@@ -84,39 +84,31 @@ async def create_ml_task(
             status=TaskStatus.PROCESSING.value
         )
         session.add(task)
-        session.flush()   
+        session.flush()
 
+        # Асинхронная отправка задачи в очередь RabbitMQ.
+        # Воркер (ml_worker/main.py) загрузит модель, сгенерирует ответ,
+        # спишет кредиты и завершит задачу самостоятельно.
+        # Списываем кредиты здесь, чтобы избежать двойного списания. Списание
+        # выполняется воркером в process_task(), поэтому у нас транзакция не нужна.
         try:
-            result = llm_service.generate(data.input_data, config)
+            send_task({
+                'task_id': task.id,
+                'features': data.input_data,
+                'llm_config_id': config.id,
+            })
         except Exception as e:
             task.status = TaskStatus.FAILED.value
-            task.error_message = str(e)
+            task.error_message = f"Не удалось поставить задачу в очередь: {str(e)}"
             session.add(task)
             session.commit()
-            logger.error(f"LLM generation failed for task {task.id}: {e}")
+            session.refresh(task)
+            logger.error(f"Failed to enqueue ML task {task.id}: {e}")
             return task
 
-        task.status = TaskStatus.COMPLETED.value
-        task.output_data = result
-        task.completed_at = datetime.utcnow()
-
-        user.balance.withdraw(cost_credits)
-
-        transaction = Transaction(
-            user_id=user.id,
-            amount=cost_rub,
-            transaction_type=TransactionType.WITHDRAW,
-            description=f"Payment for ML task #{task.id}",
-            status="approved"
-        )
-        session.add(transaction)
-
-        session.add(task)
-        session.add(user.balance)
         session.commit()
         session.refresh(task)
-
-        logger.info(f"ML task {task.id} completed, charged {cost_credits} credits")
+        logger.info(f"ML task {task.id} submitted to queue for async processing")
         return task
 
     except HTTPException:
@@ -173,8 +165,8 @@ async def delete_ml_task(
     MLTaskService.delete_ml_task(task_id, session)
     return {"message": "ML task successfully deleted"}
 
-@ml_task_route.post('/predict', response_model=Dict[str, str])
-async def predict(
+@ml_task_route.post('/predict', response_model=Dict[str, Any])
+def predict(
     request: Dict[str, Any],
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
@@ -195,24 +187,53 @@ async def predict(
     if not current_user.balance.has_enough(cost):
         raise HTTPException(400, "Insufficient balance")
 
+    # Валидация входных данных
+    llm_service = DefaultLLMService()
+    validation_errors = llm_service.validate_data(features, llm_config)
+    if validation_errors:
+        raise HTTPException(400, detail="; ".join(validation_errors))
+
+    # Создаём задачу в статусе PROCESSING
     task = MLTask(
         user_id=current_user.id,
         llm_config_id=llm_config.id,
         input_data=features,
-        status=TaskStatus.PENDING.value,
+        status=TaskStatus.PROCESSING.value,
         cost=cost,
         created_at=datetime.utcnow()
     )
     session.add(task)
+    session.flush()
+
+    # Асинхронная отправка в очередь RabbitMQ. Воркер сгенерирует ответ,
+    # спишет кредиты и завершит задачу. Возвращаем task_id сразу — UI опрашивает
+    # статус задачи через GET /api/ml-tasks/{task_id}.
+    try:
+        send_task({
+            'task_id': task.id,
+            'features': features,
+            'llm_config_id': llm_config.id,
+        })
+    except Exception as e:
+        task.status = TaskStatus.FAILED.value
+        task.error_message = f"Не удалось поставить задачу в очередь: {str(e)}"
+        session.add(task)
+        session.commit()
+        session.refresh(task)
+        logger.error(f"Failed to enqueue ML task {task.id}: {e}")
+        return {
+            "task_id": str(task.id),
+            "status": task.status,
+            "output_data": None,
+            "error_message": task.error_message,
+        }
+
     session.commit()
     session.refresh(task)
-
-    message = {
+    logger.info(f"ML task {task.id} submitted async, awaiting worker")
+    return {
         "task_id": str(task.id),
-        "features": features,
-        "llm_config_id": llm_config.id,
-        "timestamp": datetime.utcnow().isoformat()
+        "status": task.status,
+        "output_data": None,
+        "error_message": None,
     }
-    send_task(message)
-
-    return {"task_id": str(task.id)}

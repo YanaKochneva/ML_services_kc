@@ -140,7 +140,7 @@ def update_task_status(task_id: int, status: str, session: Session) -> Optional[
         return None
     
     task.status = status
-    if status in ['COMPLETED', 'FAILED']:
+    if status in ['completed', 'failed']:
         task.completed_at = datetime.utcnow()
     
     session.add(task)
@@ -244,7 +244,7 @@ def get_pending_tasks(session: Session) -> List[MLTask]:
         List[MLTask]: Список задач в ожидании
     """
     return session.exec(
-        select(MLTask).where(MLTask.status == "PENDING")
+        select(MLTask).where(MLTask.status == "pending")
     ).all()
 
 def get_tasks_by_statuses(session: Session, statuses: List[str]) -> List[MLTask]:

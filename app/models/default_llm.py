@@ -28,7 +28,8 @@ class DefaultLLMService(LLMServiceInterface):
         """Генерация ответа LLM."""
         prompt = data.get('prompt', '')
         
-        response = f"[{config.name}] Ответ на ваш запрос: '{prompt[:50]}...'"
+        from services.qwen_service import get_qwen_service
+        response = get_qwen_service().generate({'prompt': prompt}, config)['response']
         
         return {
             'response': response,

@@ -52,7 +52,12 @@ def create_application() -> FastAPI:
 
     @app.get("/")
     async def index():
-        return FileResponse(BASE_DIR / "view" / "index.html")
+        # no-cache: чтобы изменения разметки/подключаемых версий статики
+        # сразу доходили до браузера
+        return FileResponse(
+            BASE_DIR / "view" / "index.html",
+            headers={"Cache-Control": "no-cache, must-revalidate"},
+        )
 
     @app.get("/api/llm-configs", tags=["LLM"])
     def get_llm_configs():
