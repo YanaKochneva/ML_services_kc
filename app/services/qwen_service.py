@@ -2,8 +2,6 @@ import logging
 import os
 import torch
 
-# Используем зеркало Hugging Face (hf-mirror.com) для более быстрой/стабильной
-# загрузки весов модели (особенно для пользователей из регионов СНГ).
 os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
 os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
 try:
@@ -38,7 +36,6 @@ class QwenService(LLMServiceInterface):
 
         logger.info(f"{model_name} loaded successfully")
 
-    # --- LLMServiceInterface ---
     def validate_data(self, data: Dict[str, Any], config: LLMConfig) -> List[str]:
         """Валидация данных для LLM."""
         errors = []
@@ -65,7 +62,6 @@ class QwenService(LLMServiceInterface):
         else:
             prompt = data.get('prompt', '')
 
-        # Лимит токенов: на CPU небольшой, чтобы генерация укладывалась в таймаут (~90 сек).
         if self.device == "cpu":
             max_new_tokens = 96
         else:

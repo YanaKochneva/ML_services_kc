@@ -53,7 +53,6 @@ const tabPanes = {
 };
 
 function apiFetch(endpoint, options = {}) {
-    // Если нет токена – перенаправляем на логин
     if (!token) {
         logout();
         return Promise.reject(new Error('Not authenticated'));
@@ -71,7 +70,6 @@ function apiFetch(endpoint, options = {}) {
     })
     .then(res => {
         if (res.status === 401) {
-            // Токен недействителен – выходим
             logout();
             throw new Error('Session expired. Please login again.');
         }
@@ -167,8 +165,6 @@ function handleSignup() {
         showSignupError('Заполните все поля');
         return;
     }
-    // Обычный fetch (не apiFetch): регистрация выполняется ДО входа,
-    // когда токена ещё нет, и авторизация для этого запроса не нужна.
     fetch(`${API_BASE}/api/users/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -310,7 +306,6 @@ withdrawBtn.addEventListener('click', () => {
     });
 });
 
-// ===== ЧАТ =====
 function appendMessage(role, content, meta = '') {
     const div = document.createElement('div');
     div.className = `message ${role}`;
@@ -322,12 +317,11 @@ function appendMessage(role, content, meta = '') {
 function pollTaskStatus(taskId, onComplete) {
     if (pollingIntervals[taskId]) clearInterval(pollingIntervals[taskId]);
     let attempts = 0;
-    const maxAttempts = 200; // 200 * 3с = 10 минут (генерация на CPU + первая загрузка модели в память занимают несколько минут)
+    const maxAttempts = 200; 
     const interval = setInterval(() => {
         attempts++;
         apiFetch(`/api/ml-tasks/${taskId}`)
             .then(task => {
-                // Статусы в БД хранятся в нижнем регистре: 'completed', 'failed', 'validation_error'
                 const status = (task.status || '').toLowerCase();
                 if (status === 'completed') {
                     clearInterval(interval);
@@ -343,7 +337,7 @@ function pollTaskStatus(taskId, onComplete) {
                     onComplete('Превышено время ожидания');
                 }
             })
-            .catch(() => { /* игнорируем сетевые ошибки */ });
+            .catch(() => {});
     }, 3000);
     pollingIntervals[taskId] = interval;
 }
@@ -380,8 +374,6 @@ function sendMessage() {
             return;
         }
 
-        // Асинхронная задача: периодически опрашиваем статус, пока воркер
-        // не завершит обработку.
         pollTaskStatus(data.task_id, (err, task) => {
             sendBtn.disabled = false;
             sendBtn.textContent = 'Отправить';
@@ -505,5 +497,4 @@ setInterval(() => {
     if (token) refreshBalance();
 }, 30000);
 
-// Запуск
 init();

@@ -86,11 +86,6 @@ def create_ml_task(
         session.add(task)
         session.flush()
 
-        # Асинхронная отправка задачи в очередь RabbitMQ.
-        # Воркер (ml_worker/main.py) загрузит модель, сгенерирует ответ,
-        # спишет кредиты и завершит задачу самостоятельно.
-        # Списываем кредиты здесь, чтобы избежать двойного списания. Списание
-        # выполняется воркером в process_task(), поэтому у нас транзакция не нужна.
         try:
             send_task({
                 'task_id': task.id,
@@ -146,7 +141,7 @@ async def get_ml_task_by_id(
     task = MLTaskService.get_ml_task_by_id(task_id, session)
     if task is None:
         raise HTTPException(404, "ML task not found")
-    # Проверка прав
+
     if current_user.role != "admin" and task.user_id != current_user.id:
         raise HTTPException(403, "Not allowed to view this task")
     return task
@@ -187,13 +182,11 @@ def predict(
     if not current_user.balance.has_enough(cost):
         raise HTTPException(400, "Insufficient balance")
 
-    # Валидация входных данных
     llm_service = DefaultLLMService()
     validation_errors = llm_service.validate_data(features, llm_config)
     if validation_errors:
         raise HTTPException(400, detail="; ".join(validation_errors))
 
-    # Создаём задачу в статусе PROCESSING
     task = MLTask(
         user_id=current_user.id,
         llm_config_id=llm_config.id,
@@ -205,9 +198,6 @@ def predict(
     session.add(task)
     session.flush()
 
-    # Асинхронная отправка в очередь RabbitMQ. Воркер сгенерирует ответ,
-    # спишет кредиты и завершит задачу. Возвращаем task_id сразу — UI опрашивает
-    # статус задачи через GET /api/ml-tasks/{task_id}.
     try:
         send_task({
             'task_id': task.id,

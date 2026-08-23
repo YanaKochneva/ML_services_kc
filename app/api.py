@@ -30,7 +30,6 @@ def create_application() -> FastAPI:
 
     BASE_DIR = Path(__file__).resolve().parent
     app.mount("/view", StaticFiles(directory=BASE_DIR / "view"), name="view")
-    # templates = Jinja2Templates(directory="view")
 
     app.add_middleware(
         CORSMiddleware,
@@ -52,8 +51,6 @@ def create_application() -> FastAPI:
 
     @app.get("/")
     async def index():
-        # no-cache: чтобы изменения разметки/подключаемых версий статики
-        # сразу доходили до браузера
         return FileResponse(
             BASE_DIR / "view" / "index.html",
             headers={"Cache-Control": "no-cache, must-revalidate"},
