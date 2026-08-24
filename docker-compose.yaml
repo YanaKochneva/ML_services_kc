@@ -77,8 +77,8 @@ services:
     env_file:
       - ./app/.env 
     environment:
-      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER:-guest}
-      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD:-guest}
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER:-rmuser}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD:-rmpassword}
       - RABBITMQ_DEFAULT_VHOST=${RABBITMQ_VHOST:-/}
 
   database:
@@ -91,7 +91,7 @@ services:
       - ./app/.env  
     environment:
       - POSTGRES_USER=${DB_USER:-postgres}
-      - POSTGRES_PASSWORD=balbes
+      - POSTGRES_PASSWORD=${DB_PASS:-balbes}
       - POSTGRES_DB=${DB_NAME:-event_planner}
       - PGDATA=/var/lib/postgresql/data/pgdata
     volumes:
